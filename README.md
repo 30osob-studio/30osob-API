@@ -1,1 +1,1 @@
-![alt](https://raw.githubusercontent.com/30osob-studio/Website/dcc25d4caed794f9bd0b7505d05a815c05efd0bc/NoImage.png)
+![alt](https://i.pinimg.com/736x/7f/1c/cc/7f1ccc8a52c15d2953acb0cf3f7a13cf.jpg)
