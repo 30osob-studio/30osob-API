@@ -100,7 +100,7 @@ function mapRepoData(repo) {
     license: repo.license,
     size: repo.size,
     contributors: repo.contributors || [],
-    repo_image: repo.repo_image || null
+    repo_image: repo.repo_image || "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true"
   };
 
   return convertEmptyToNull(repoData);
@@ -314,7 +314,7 @@ async function fetchRepoContributors(org, repoName) {
 }
 
 function extractFirstLineFromReadme(readme) {
-  if (!readme) return null;
+  if (!readme) return "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true";
   const lines = readme.split('\n');
   const firstLine = lines[0].trim();
 
@@ -325,7 +325,7 @@ function extractFirstLineFromReadme(readme) {
     return match[1];
   }
 
-  return firstLine || null;
+  return "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true";
 }
 
 module.exports = {
