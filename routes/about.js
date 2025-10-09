@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const { fetchOrganization, fetchOrgProfileReadme, convertEmptyToNull } = require("../utils/githubApi");
+const { fetchOrganization, fetchOrgProfileReadme, getReposWithTopicsCount, convertEmptyToNull } = require("../utils/githubApi");
 
 router.get("/", async (req, res) => {
     try {
         const orgData = await fetchOrganization("30osob-studio");
         const profileReadme = await fetchOrgProfileReadme("30osob-studio");
+        const reposWithTopicsCount = await getReposWithTopicsCount("30osob-studio");
 
         const orgWithReadme = {
             ...orgData,
+            public_repos: reposWithTopicsCount,
             readme: profileReadme
         };
 

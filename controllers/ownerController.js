@@ -1,12 +1,14 @@
-const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, mapUserData, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
+const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, getOwnerReposWithTopicsCount, mapUserData, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
 
 const getOwner = async (req, res) => {
   try {
     const owner = await fetchOwner("30osob-studio");
     const readme = await fetchOwnerReadme("30osob-studio");
+    const reposWithTopicsCount = await getOwnerReposWithTopicsCount("30osob-studio");
 
     const ownerWithReadme = {
       ...owner,
+      public_repos: reposWithTopicsCount,
       readme: readme
     };
 

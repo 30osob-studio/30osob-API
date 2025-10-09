@@ -144,6 +144,38 @@ async function fetchOrganization(org) {
   return mapOrganizationData(orgData);
 }
 
+async function getReposWithTopicsCount(org) {
+  const repos = await fetchJSON(`https://api.github.com/orgs/${org}/repos`);
+  const publicRepos = repos.filter(repo => !repo.private && repo.name !== '.github');
+
+  const reposWithTopics = publicRepos.filter(repo =>
+    repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+  );
+
+  return reposWithTopics.length;
+}
+
+async function getOwnerReposWithTopicsCount(org) {
+  const members = await fetchJSON(`https://api.github.com/orgs/${org}/members?role=admin`);
+  if (!members || members.length === 0) {
+    throw new Error('No admin members found for organization');
+  }
+
+  const ownerLogin = members[0].login;
+  const repos = await fetchJSON(`https://api.github.com/users/${ownerLogin}/repos`);
+  const publicRepos = repos.filter(repo =>
+    !repo.private &&
+    repo.name !== '.github' &&
+    repo.name !== ownerLogin
+  );
+
+  const reposWithTopics = publicRepos.filter(repo =>
+    repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+  );
+
+  return reposWithTopics.length;
+}
+
 async function fetchOrgReposWithLanguages(org) {
   const repos = await fetchJSON(`https://api.github.com/orgs/${org}/repos`);
   const publicRepos = repos.filter(repo => !repo.private && repo.name !== '.github');
@@ -305,6 +337,8 @@ module.exports = {
   fetchRepoReadme,
   fetchRepoContributors,
   fetchOrganization,
+  getReposWithTopicsCount,
+  getOwnerReposWithTopicsCount,
   mapUserData,
   mapRepoData,
   mapLanguagesData,
