@@ -1,8 +1,9 @@
 const fetch = require("node-fetch");
 
 const headers = {
-  "User-Agent": "node.js",
-  "Authorization": `token ${process.env.API_TOKEN}`,
+  "User-Agent": "30osob-API",
+  "Authorization": `Bearer ${process.env.API_TOKEN}`,
+  "Accept": "application/vnd.github+json",
 };
 
 function convertEmptyToNull(obj) {
