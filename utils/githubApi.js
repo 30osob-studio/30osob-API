@@ -1,9 +1,40 @@
 const fetch = require("node-fetch");
 
 const headers = {
-  "User-Agent": "node.js",
-  "Authorization": `token ${process.env.API_TOKEN}`,
+  "User-Agent": "30osob-API",
+  "Authorization": `Bearer ${process.env.API_TOKEN}`,
+  "Accept": "application/vnd.github+json",
 };
+
+function convertEmptyToNull(obj) {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+
+  if (typeof obj === 'string') {
+    return obj.trim() === '' ? null : obj;
+  }
+
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) {
+      return null;
+    }
+    return obj.map(item => convertEmptyToNull(item));
+  }
+
+  if (typeof obj === 'object') {
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const convertedValue = convertEmptyToNull(value);
+      if (convertedValue !== null) {
+        result[key] = convertedValue;
+      }
+    }
+    return Object.keys(result).length === 0 ? null : result;
+  }
+
+  return obj;
+}
 
 async function fetchJSON(url) {
   const res = await fetch(url, { headers });
@@ -12,7 +43,7 @@ async function fetchJSON(url) {
 }
 
 function mapUserData(user) {
-  return {
+  const userData = {
     avatar_url: user.avatar_url,
     html_url: user.html_url,
     name: user.name,
@@ -23,32 +54,79 @@ function mapUserData(user) {
     twitter_username: user.twitter_username,
     public_repos: user.public_repos,
   };
+
+  return convertEmptyToNull(userData);
 }
 
 function mapRepoData(repo) {
-  return {
+  const pushedAt = repo.pushed_at ? new Date(repo.pushed_at) : null;
+  const updatedAt = repo.updated_at ? new Date(repo.updated_at) : null;
+
+  let lastChange = null;
+  if (pushedAt || updatedAt) {
+    const mostRecent = pushedAt && updatedAt
+      ? (pushedAt > updatedAt ? pushedAt : updatedAt)
+      : (pushedAt || updatedAt);
+
+    const now = new Date();
+    const diffInMs = now - mostRecent;
+    const diffInSeconds = Math.floor(diffInMs / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInDays > 0) {
+      lastChange = `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    } else if (diffInHours > 0) {
+      lastChange = `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    } else if (diffInMinutes > 0) {
+      lastChange = `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    } else {
+      lastChange = `${diffInSeconds} second${diffInSeconds > 1 ? 's' : ''} ago`;
+    }
+  }
+
+  const repoData = {
     name: repo.name,
     html_url: repo.html_url,
     description: repo.description,
     created_at: repo.created_at,
     updated_at: repo.updated_at,
     pushed_at: repo.pushed_at,
+    last_change: lastChange,
     topics: repo.topics,
-    homepage: repo.homepage,
+    homepage: repo.homepage && repo.homepage.trim() !== '' ? repo.homepage : null,
     open_issues_count: repo.open_issues_count,
     default_branch: repo.default_branch,
     license: repo.license,
-    contributors: repo.contributors || []
+    size: repo.size,
+    contributors: repo.contributors || [],
+    repo_image: repo.repo_image || "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true"
   };
+
+  return convertEmptyToNull(repoData);
 }
 
 
 function mapLanguagesData(languages) {
-  return languages;
+  if (!languages || Object.keys(languages).length === 0) {
+    return null;
+  }
+
+  const totalBytes = Object.values(languages).reduce((sum, bytes) => sum + bytes, 0);
+
+  const result = {};
+
+  Object.entries(languages).forEach(([language, bytes]) => {
+    const percentage = ((bytes / totalBytes) * 100).toFixed(1);
+    result[language] = parseFloat(percentage);
+  });
+
+  return convertEmptyToNull(result);
 }
 
 function mapOrganizationData(org) {
-  return {
+  const orgData = {
     avatar_url: org.avatar_url,
     description: org.description,
     name: org.name,
@@ -58,6 +136,8 @@ function mapOrganizationData(org) {
     public_repos: org.public_repos,
     html_url: org.html_url,
   };
+
+  return convertEmptyToNull(orgData);
 }
 
 async function fetchOrganization(org) {
@@ -65,15 +145,50 @@ async function fetchOrganization(org) {
   return mapOrganizationData(orgData);
 }
 
+async function getReposWithTopicsCount(org) {
+  const repos = await fetchJSON(`https://api.github.com/orgs/${org}/repos`);
+  const publicRepos = repos.filter(repo => !repo.private && repo.name !== '.github');
+
+  const reposWithTopics = publicRepos.filter(repo =>
+    repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+  );
+
+  return reposWithTopics.length;
+}
+
+async function getOwnerReposWithTopicsCount(org) {
+  const members = await fetchJSON(`https://api.github.com/orgs/${org}/members?role=admin`);
+  if (!members || members.length === 0) {
+    throw new Error('No admin members found for organization');
+  }
+
+  const ownerLogin = members[0].login;
+  const repos = await fetchJSON(`https://api.github.com/users/${ownerLogin}/repos`);
+  const publicRepos = repos.filter(repo =>
+    !repo.private &&
+    repo.name !== '.github' &&
+    repo.name !== ownerLogin
+  );
+
+  const reposWithTopics = publicRepos.filter(repo =>
+    repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+  );
+
+  return reposWithTopics.length;
+}
+
 async function fetchOrgReposWithLanguages(org) {
   const repos = await fetchJSON(`https://api.github.com/orgs/${org}/repos`);
+  const publicRepos = repos.filter(repo => !repo.private && repo.name !== '.github');
+
   return Promise.all(
-    repos.map(async (repo) => {
+    publicRepos.map(async (repo) => {
       const languages = await fetchJSON(`https://api.github.com/repos/${org}/${repo.name}/languages`);
       const readme = await fetchRepoReadme(org, repo.name);
       const contributors = await fetchRepoContributors(org, repo.name);
+      const repo_image = extractFirstLineFromReadme(readme);
       return {
-        ...mapRepoData(repo),
+        ...mapRepoData({ ...repo, repo_image }),
         languages: mapLanguagesData(languages),
         readme: readme,
         contributors: contributors
@@ -103,12 +218,19 @@ async function fetchOwnerReposWithLanguages(org) {
   const ownerLogin = members[0].login;
 
   const repos = await fetchJSON(`https://api.github.com/users/${ownerLogin}/repos`);
+  const publicRepos = repos.filter(repo =>
+    !repo.private &&
+    repo.name !== '.github' &&
+    repo.name !== ownerLogin
+  );
+
   return Promise.all(
-    repos.map(async (repo) => {
+    publicRepos.map(async (repo) => {
       const languages = await fetchJSON(`https://api.github.com/repos/${ownerLogin}/${repo.name}/languages`);
       const readme = await fetchRepoReadme(ownerLogin, repo.name);
+      const repo_image = extractFirstLineFromReadme(readme);
       return {
-        ...mapRepoData(repo),
+        ...mapRepoData({ ...repo, repo_image }),
         languages: mapLanguagesData(languages),
         readme: readme
       };
@@ -162,15 +284,49 @@ async function fetchRepoReadme(org, repoName) {
 async function fetchRepoContributors(org, repoName) {
   try {
     const contributors = await fetchJSON(`https://api.github.com/repos/${org}/${repoName}/contributors`);
-    return contributors.map(contributor => ({
-      login: contributor.login,
-      avatar_url: contributor.avatar_url,
-      html_url: contributor.html_url
-    }));
+
+    const contributorsWithDetails = await Promise.all(
+      contributors.map(async (contributor) => {
+        try {
+          const userDetails = await fetchJSON(`https://api.github.com/users/${contributor.login}`);
+          return {
+            login: contributor.login,
+            name: userDetails.name || contributor.login,
+            avatar_url: contributor.avatar_url,
+            html_url: contributor.html_url
+          };
+        } catch (error) {
+          console.error(`Error fetching details for contributor ${contributor.login}:`, error);
+          return {
+            login: contributor.login,
+            name: contributor.login,
+            avatar_url: contributor.avatar_url,
+            html_url: contributor.html_url
+          };
+        }
+      })
+    );
+
+    return convertEmptyToNull(contributorsWithDetails);
   } catch (error) {
     console.error(`Error fetching contributors for ${org}/${repoName}:`, error);
-    return [];
+    return null;
   }
+}
+
+function extractFirstLineFromReadme(readme) {
+  if (!readme) return "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true";
+  const lines = readme.split('\n');
+  const firstLine = lines[0].trim();
+
+  const imageRegex = /!\[.*?\]\((https?:\/\/[^\s)]+)\)/;
+  const match = firstLine.match(imageRegex);
+
+  if (match) {
+    return match[1];
+  }
+
+  return "https://github.com/30osob-studio/.github/blob/main/assets/NoImage.png?raw=true";
 }
 
 module.exports = {
@@ -182,8 +338,12 @@ module.exports = {
   fetchRepoReadme,
   fetchRepoContributors,
   fetchOrganization,
+  getReposWithTopicsCount,
+  getOwnerReposWithTopicsCount,
   mapUserData,
   mapRepoData,
   mapLanguagesData,
   mapOrganizationData,
+  extractFirstLineFromReadme,
+  convertEmptyToNull,
 };

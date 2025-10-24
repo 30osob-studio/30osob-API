@@ -1,12 +1,14 @@
-const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, mapUserData, mapRepoData, mapLanguagesData } = require("../utils/githubApi");
+const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, getOwnerReposWithTopicsCount, mapUserData, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
 
 const getOwner = async (req, res) => {
   try {
     const owner = await fetchOwner("30osob-studio");
     const readme = await fetchOwnerReadme("30osob-studio");
+    const reposWithTopicsCount = await getOwnerReposWithTopicsCount("30osob-studio");
 
     const ownerWithReadme = {
       ...owner,
+      public_repos: reposWithTopicsCount,
       readme: readme
     };
 
@@ -22,10 +24,10 @@ const getOwner = async (req, res) => {
         }
       });
 
-      return res.json(filteredOwner);
+      return res.json(convertEmptyToNull(filteredOwner));
     }
 
-    res.json(ownerWithReadme);
+    res.json(convertEmptyToNull(ownerWithReadme));
   } catch (error) {
     console.error("Błąd:", error);
     res.status(500).json({ error: "Wewnętrzny błąd serwera" });
@@ -38,14 +40,16 @@ const getOwnerRepos = async (req, res) => {
 
     const { fields, repoFields, languageFields } = req.query;
 
-    let filteredRepos = repos;
+    let filteredRepos = repos.filter(repo =>
+      repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+    );
 
     if (repoFields) {
       const repoFieldList = repoFields.split(',').map(field => field.trim());
       filteredRepos = repos.map(repo => {
         const filteredRepo = {};
         repoFieldList.forEach(field => {
-          if (field !== 'languages' && field !== 'readme' && repo.hasOwnProperty(field)) {
+          if (field !== 'languages' && field !== 'readme' && field !== 'repo_image' && repo.hasOwnProperty(field)) {
             filteredRepo[field] = repo[field];
           }
         });
@@ -69,6 +73,10 @@ const getOwnerRepos = async (req, res) => {
           filteredRepo.readme = repo.readme;
         }
 
+        if (repoFieldList.includes('repo_image')) {
+          filteredRepo.repo_image = repo.repo_image;
+        }
+
         return filteredRepo;
       });
     }
@@ -86,7 +94,7 @@ const getOwnerRepos = async (req, res) => {
       });
     }
 
-    res.json(filteredRepos);
+    res.json(convertEmptyToNull(filteredRepos));
   } catch (error) {
     console.error("Błąd:", error);
     res.status(500).json({ error: "Wewnętrzny błąd serwera" });

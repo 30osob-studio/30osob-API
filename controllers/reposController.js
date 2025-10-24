@@ -1,4 +1,4 @@
-const { fetchOrgReposWithLanguages, mapRepoData, mapLanguagesData } = require("../utils/githubApi");
+const { fetchOrgReposWithLanguages, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
 
 const getOrgRepos = async (req, res) => {
   try {
@@ -6,14 +6,16 @@ const getOrgRepos = async (req, res) => {
 
     const { fields, repoFields, languageFields } = req.query;
 
-    let filteredRepos = reposWithLanguages;
+    let filteredRepos = reposWithLanguages.filter(repo =>
+      repo.topics && Array.isArray(repo.topics) && repo.topics.length > 0
+    );
 
     if (repoFields) {
       const repoFieldList = repoFields.split(',').map(field => field.trim());
       filteredRepos = reposWithLanguages.map(repo => {
         const filteredRepo = {};
         repoFieldList.forEach(field => {
-          if (field !== 'languages' && field !== 'readme' && field !== 'contributors' && repo.hasOwnProperty(field)) {
+          if (field !== 'languages' && field !== 'readme' && field !== 'contributors' && field !== 'repo_image' && repo.hasOwnProperty(field)) {
             filteredRepo[field] = repo[field];
           }
         });
@@ -41,6 +43,10 @@ const getOrgRepos = async (req, res) => {
           filteredRepo.contributors = repo.contributors;
         }
 
+        if (repoFieldList.includes('repo_image')) {
+          filteredRepo.repo_image = repo.repo_image;
+        }
+
         return filteredRepo;
       });
     }
@@ -58,7 +64,7 @@ const getOrgRepos = async (req, res) => {
       });
     }
 
-    res.json(filteredRepos);
+    res.json(convertEmptyToNull(filteredRepos));
   } catch (error) {
     console.error("Błąd:", error);
     res.status(500).json({ error: "Wewnętrzny błąd serwera" });
