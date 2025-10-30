@@ -1,6 +1,8 @@
 const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, getOwnerReposWithTopicsCount, mapUserData, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
+const { getCachedData, setDataFromCache } = require("../utils/cache");
 
 const getOwner = async (req, res) => {
+  setDataFromCache(false);
   try {
     const owner = await fetchOwner("30osob-studio");
     const readme = await fetchOwnerReadme("30osob-studio");
@@ -29,12 +31,31 @@ const getOwner = async (req, res) => {
 
     res.json(convertEmptyToNull(ownerWithReadme));
   } catch (error) {
-    console.error("Błąd:", error);
-    res.status(500).json({ error: "Wewnętrzny błąd serwera" });
+    console.error("Error in /owner endpoint:", error.message);
+    
+    if (error.message.includes("401")) {
+      return res.status(401).json({ 
+        error: "Unauthorized - API token is invalid or expired",
+        details: error.message
+      });
+    }
+    
+    const cachedOwner = getCachedData("owner");
+    if (cachedOwner && typeof cachedOwner === 'object') {
+      console.log("Using cached owner data as fallback");
+      setDataFromCache(true);
+      return res.json(convertEmptyToNull(cachedOwner));
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to fetch owner data",
+      details: error.message
+    });
   }
 };
 
 const getOwnerRepos = async (req, res) => {
+  setDataFromCache(false);
   try {
     const repos = await fetchOwnerReposWithLanguages("30osob-studio");
 
@@ -96,8 +117,26 @@ const getOwnerRepos = async (req, res) => {
 
     res.json(convertEmptyToNull(filteredRepos));
   } catch (error) {
-    console.error("Błąd:", error);
-    res.status(500).json({ error: "Wewnętrzny błąd serwera" });
+    console.error("Error in /owner/repos endpoint:", error.message);
+    
+    if (error.message.includes("401")) {
+      return res.status(401).json({ 
+        error: "Unauthorized - API token is invalid or expired",
+        details: error.message
+      });
+    }
+    
+    const cachedOwnerRepos = getCachedData("ownerRepos");
+    if (cachedOwnerRepos && Array.isArray(cachedOwnerRepos)) {
+      console.log("Using cached owner repos as fallback");
+      setDataFromCache(true);
+      return res.json(convertEmptyToNull(cachedOwnerRepos));
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to fetch owner repositories",
+      details: error.message
+    });
   }
 };
 

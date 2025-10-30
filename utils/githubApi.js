@@ -1,4 +1,5 @@
 const fetch = require("node-fetch");
+const { getCachedData, setCachedData, setDataFromCache } = require("./cache");
 
 const headers = {
   "User-Agent": "30osob-API",
@@ -37,9 +38,39 @@ function convertEmptyToNull(obj) {
 }
 
 async function fetchJSON(url) {
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
-  return res.json();
+  const cacheKey = url;
+  
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      let errorMessage = `GitHub API error ${res.status}`;
+      
+      if (res.status === 401) {
+        errorMessage = "401 Unauthorized - API token is invalid or expired. Please check your GitHub API token in .env file";
+      } else if (res.status === 403) {
+        errorMessage = "403 Forbidden - API rate limit exceeded or insufficient permissions";
+      } else if (res.status === 404) {
+        errorMessage = "404 Not Found - Resource not found on GitHub";
+      } else if (res.status === 422) {
+        errorMessage = "422 Unprocessable Entity - Invalid request format";
+      }
+      
+      throw new Error(errorMessage);
+    }
+    const data = await res.json();
+    
+    setCachedData(cacheKey, data);
+    return data;
+  } catch (error) {
+    const cachedData = getCachedData(cacheKey);
+    if (cachedData) {
+      console.warn(`Fetch failed for ${url}, returning cached data`);
+      console.warn(`Error: ${error.message}`);
+      setDataFromCache(true);
+      return cachedData;
+    }
+    throw error;
+  }
 }
 
 function mapUserData(user) {
