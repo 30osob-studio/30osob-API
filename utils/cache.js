@@ -14,10 +14,12 @@ function getCachedData(key) {
   return memoryCache.data[key] || null;
 }
 
-function setCachedData(key, value) {
+function setCachedData(key, value, updateLastFetch = true) {
   memoryCache.data[key] = value;
-  memoryCache.lastFetch = new Date().toISOString();
-  memoryCache.lastError = null;
+  if (updateLastFetch) {
+    memoryCache.lastFetch = new Date().toISOString();
+    memoryCache.lastError = null;
+  }
   memoryCache.isFromCache = false;
   persistCacheToFile();
 }

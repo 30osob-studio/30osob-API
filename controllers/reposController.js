@@ -1,10 +1,12 @@
 const { fetchOrgReposWithLanguages, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
-const { getCachedData, setDataFromCache } = require("../utils/cache");
+const { getCachedData, setDataFromCache, setCachedData } = require("../utils/cache");
 
 const getOrgRepos = async (req, res) => {
   setDataFromCache(false);
   try {
     const reposWithLanguages = await fetchOrgReposWithLanguages("30osob-studio");
+
+    setCachedData("orgRepos", reposWithLanguages, true);
 
     const { fields, repoFields, languageFields } = req.query;
 

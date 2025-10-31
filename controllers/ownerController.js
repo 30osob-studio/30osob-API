@@ -1,5 +1,5 @@
 const { fetchOwner, fetchOwnerReposWithLanguages, fetchOwnerReadme, getOwnerReposWithTopicsCount, mapUserData, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
-const { getCachedData, setDataFromCache } = require("../utils/cache");
+const { getCachedData, setDataFromCache, setCachedData } = require("../utils/cache");
 
 const getOwner = async (req, res) => {
   setDataFromCache(false);
@@ -13,6 +13,8 @@ const getOwner = async (req, res) => {
       public_repos: reposWithTopicsCount,
       readme: readme
     };
+
+    setCachedData("owner", ownerWithReadme, true);
 
     const { fields } = req.query;
 
@@ -58,6 +60,8 @@ const getOwnerRepos = async (req, res) => {
   setDataFromCache(false);
   try {
     const repos = await fetchOwnerReposWithLanguages("30osob-studio");
+
+    setCachedData("ownerRepos", repos, true);
 
     const { fields, repoFields, languageFields } = req.query;
 

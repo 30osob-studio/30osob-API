@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { fetchOrganization, fetchOrgProfileReadme, getReposWithTopicsCount, convertEmptyToNull } = require("../utils/githubApi");
-const { getCachedData, setDataFromCache } = require("../utils/cache");
+const { getCachedData, setDataFromCache, setCachedData } = require("../utils/cache");
 
 router.get("/", async (req, res) => {
     setDataFromCache(false);
@@ -15,6 +15,8 @@ router.get("/", async (req, res) => {
             public_repos: reposWithTopicsCount,
             readme: profileReadme
         };
+
+        setCachedData("organization", orgWithReadme, true);
 
         const { fields } = req.query;
 

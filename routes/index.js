@@ -10,12 +10,18 @@ router.get("/", (req, res) => res.send("Hello World"));
 router.get("/status", (req, res) => {
   const tokenLoaded = !!process.env.API_TOKEN;
   const lastFetch = getLastFetchTime();
+
+  let formattedTime = null;
+  if (lastFetch) {
+    const date = new Date(lastFetch);
+    formattedTime = date.toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw' });
+  }
   
   res.json({
     token: tokenLoaded ? "loaded" : "not_loaded",
     working: hasCacheData() ? "yes" : "no",
     up_to_date: tokenLoaded && !isDataFromCache() ? "yes" : "no",
-    last_fetch: lastFetch ? new Date(lastFetch).toLocaleString('pl-PL') : null,
+    last_fetch: formattedTime,
     last_error: getLastError() || null
   });
 });

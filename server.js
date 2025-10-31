@@ -32,9 +32,9 @@ async function initializeCache() {
       ]);
       
       const { setCachedData } = require("./utils/cache");
-      setCachedData("orgRepos", orgRepos);
-      setCachedData("owner", owner);
-      setCachedData("ownerRepos", ownerRepos);
+      setCachedData("orgRepos", orgRepos, true);
+      setCachedData("owner", owner, true);
+      setCachedData("ownerRepos", ownerRepos, true);
       
       const { fetchOrganization, getReposWithTopicsCount } = require("./utils/githubApi");
       const orgData = await fetchOrganization("30osob-studio");
@@ -44,7 +44,7 @@ async function initializeCache() {
         public_repos: reposCount,
         readme: orgReadme
       };
-      setCachedData("organization", orgWithReadme);
+      setCachedData("organization", orgWithReadme, true);
       
       console.log("Initial cache refresh completed successfully");
     } catch (error) {

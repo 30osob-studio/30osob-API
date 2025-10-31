@@ -59,7 +59,7 @@ async function fetchJSON(url) {
     }
     const data = await res.json();
     
-    setCachedData(cacheKey, data);
+    setCachedData(cacheKey, data, true);
     return data;
   } catch (error) {
     const cachedData = getCachedData(cacheKey);
@@ -67,6 +67,7 @@ async function fetchJSON(url) {
       console.warn(`Fetch failed for ${url}, returning cached data`);
       console.warn(`Error: ${error.message}`);
       setDataFromCache(true);
+      setCachedData(cacheKey, cachedData, false);
       return cachedData;
     }
     throw error;
