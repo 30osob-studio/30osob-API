@@ -1,8 +1,12 @@
 const { fetchOrgReposWithLanguages, mapRepoData, mapLanguagesData, convertEmptyToNull } = require("../utils/githubApi");
+const { getCachedData, setDataFromCache, setCachedData } = require("../utils/cache");
 
 const getOrgRepos = async (req, res) => {
+  setDataFromCache(false);
   try {
     const reposWithLanguages = await fetchOrgReposWithLanguages("30osob-studio");
+
+    setCachedData("orgRepos", reposWithLanguages, true);
 
     const { fields, repoFields, languageFields } = req.query;
 
@@ -66,8 +70,26 @@ const getOrgRepos = async (req, res) => {
 
     res.json(convertEmptyToNull(filteredRepos));
   } catch (error) {
-    console.error("Błąd:", error);
-    res.status(500).json({ error: "Wewnętrzny błąd serwera" });
+    console.error("Error in /repos endpoint:", error.message);
+    
+    if (error.message.includes("401")) {
+      return res.status(401).json({ 
+        error: "Unauthorized - API token is invalid or expired",
+        details: error.message
+      });
+    }
+    
+    const cachedRepos = getCachedData("orgRepos");
+    if (cachedRepos && Array.isArray(cachedRepos)) {
+      console.log("Using cached org repos as fallback");
+      setDataFromCache(true);
+      return res.json(convertEmptyToNull(cachedRepos));
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to fetch organization repositories",
+      details: error.message
+    });
   }
 };
 
